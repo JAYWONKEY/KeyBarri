@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QFont, QColor, QPixmap, QIcon
 import re # 25.05.01 추가
 import pandas
+from pro_deep import get_age_from_camera,FaceRecognitionKiosk
 
 # preprocessing.py에서 필요한 함수 import
 try:
@@ -298,9 +299,8 @@ class MegaKioskUI(QMainWindow):
         
         # 메뉴 표시
         self.display_menu()
-    
     def display_menu(self):
-        """메뉴 표시"""
+        """메뉴 표시 - 이미지 추가"""
         # 기존 메뉴 위젯 제거
         while self.menu_layout.count():
             item = self.menu_layout.takeAt(0)
@@ -308,11 +308,37 @@ class MegaKioskUI(QMainWindow):
             if widget:
                 widget.deleteLater()
         
+        # 이미지 폴더 경로 설정
+        current_dir = os.path.dirname(os.path.abspath(__file__))  # 현재 스크립트 디렉토리
+        image_folder = os.path.join(current_dir, "img/drinks")  # img 폴더 절대 경로
+        
+        # 디버깅: 이미지 폴더 존재 확인
+        print(f"현재 작업 디렉토리: {os.getcwd()}")
+        print(f"이미지 폴더 경로: {image_folder}")
+        print(f"이미지 폴더 존재 여부: {os.path.exists(image_folder)}")
+        
+        # 간단한 테스트용 이미지 매핑 (3개만)
+        test_images = {
+            "아메리카노": "ICE_아메리카노.jpg",
+            "꿀아메리카노": "ICE_꿀아메리카노.jpg",
+            "헤이즐넛 아메리카노": "HOT_아메리카노.jpg",
+            "바닐라 아메리카노": "ICE_바닐라아메리카노.jpg",
+            "카페라떼": "ICE_카페라떼.jpg",
+            "카푸치노": "ICE_카푸치노.jpg",
+            "바닐라라떼 ": "ICE_카페라떼.jpg",
+            "헤이즐넛 라떼": "ICE_헤이즐넛라떼.jpg",
+            "카라멜마끼아또": "ICE_헤이즐넛라떼.jpg",
+            "연유라떼": "HOT_연유라떼.jpg",
+            "카페모카": "HOT_카페모카.jpg",
+            "에스프레소": "HOT_아메리카노.jpg",
+        }
+        
         # 새 메뉴 위젯 생성
-        menu_count = min(12, len(self.menu_df))  # 최대 12개 메뉴 표시
+        menu_count = min(12, len(self.menu_df))
         
         for i in range(menu_count):
             menu_data = self.menu_df.iloc[i]
+            menu_name = menu_data['이름']
             
             # 메뉴 프레임
             menu_frame = QFrame()
@@ -331,15 +357,42 @@ class MegaKioskUI(QMainWindow):
             # 메뉴 레이아웃
             menu_layout = QVBoxLayout(menu_frame)
             
-            # 메뉴 이미지 (임시)
+            # 메뉴 이미지
             image_label = QLabel()
             image_label.setFixedSize(120, 100)
             image_label.setAlignment(Qt.AlignCenter)
-            image_label.setStyleSheet(f"background-color: #f0f0f0; border-radius: 5px;")
-            image_label.setText(menu_data['이름'][0])  # 메뉴 이름의 첫 글자
+            
+            # 테스트 이미지 파일 경로
+            if menu_name in test_images:
+                image_path = os.path.join(image_folder, test_images[menu_name])
+                print(f"메뉴 '{menu_name}' 이미지 경로: {image_path}")
+                print(f"이미지 파일 존재 여부: {os.path.exists(image_path)}")
+                
+                if os.path.exists(image_path):
+                    try:
+                        pixmap = QPixmap(image_path)
+                        if not pixmap.isNull():
+                            scaled_pixmap = pixmap.scaled(120, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                            image_label.setPixmap(scaled_pixmap)
+                            print(f"이미지 로드 성공: {menu_name}")
+                        else:
+                            print(f"이미지 로드 실패: {image_path}")
+                            image_label.setStyleSheet("background-color: #f0f0f0; border-radius: 5px;")
+                            image_label.setText(menu_name[0])
+                    except Exception as e:
+                        print(f"이미지 로드 오류: {e}")
+                        image_label.setStyleSheet("background-color: #f0f0f0; border-radius: 5px;")
+                        image_label.setText(menu_name[0])
+                else:
+                    print(f"이미지 파일 없음: {image_path}")
+                    image_label.setStyleSheet("background-color: #f0f0f0; border-radius: 5px;")
+                    image_label.setText(menu_name[0])
+            else:
+                image_label.setStyleSheet("background-color: #f0f0f0; border-radius: 5px;")
+                image_label.setText(menu_name[0])
             
             # 메뉴 이름
-            name_label = QLabel(menu_data['이름'])
+            name_label = QLabel(menu_name)
             name_label.setAlignment(Qt.AlignCenter)
             name_label.setStyleSheet("font-weight: bold; font-size: 14px;")
             
@@ -354,11 +407,122 @@ class MegaKioskUI(QMainWindow):
             menu_layout.addWidget(price_label)
             
             # 클릭 이벤트 연결
-            menu_frame.mousePressEvent = lambda e, name=menu_data['이름'], price=menu_data['가격']: self.add_to_cart(name, price)
+            menu_frame.mousePressEvent = lambda e, name=menu_name, price=menu_data['가격']: self.add_to_cart(name, price)
             
             # 그리드에 메뉴 추가
             row, col = i // 3, i % 3
             self.menu_layout.addWidget(menu_frame, row, col)
+
+    # def display_menu(self):         
+    #     # 25.05.05 이미지 추가          
+    #     """메뉴 표시 - 이미지 추가"""         
+    #     # 기존 메뉴 위젯 제거         
+    #     while self.menu_layout.count():             
+    #         item = self.menu_layout.takeAt(0)             
+    #         widget = item.widget()             
+    #         if widget:                 
+    #             widget.deleteLater()         
+        
+    #     # 이미지 폴더 경로 설정         
+    #     image_folder = "img"  # 이미지가 있는 폴더 경로
+        
+    #     # 이미지 매핑 추가
+    #     image_mapping = {
+    #         # 음료
+    #         "HOT 디카페인 콜드브루": "Image 1.jpg",
+    #         "ICE 디카페인 콜드브루": "Image 1.jpg",
+    #         "유자차": "Image 2.jpg",
+    #         "레몬에이드": "Image 2.jpg",
+    #         "카페라떼": "Image 3.jpg",
+    #         "바닐라라떼": "Image 3.jpg",
+    #         "휘핑크림 음료": "Image 4.jpg",
+    #         "휘핑크림 오레오 쉐이크": "Image 4.jpg",
+    #         "아메리카노": "Image 6.jpg",
+    #         "고구마라떼": "Image 7.jpg",
+    #         # 음식/빵  
+    #         "핫브레드 프리미엄 블루베리": "Image 8.jpg",
+    #         "우유크림 드시모네": "Image 9.jpg", 
+    #         "피자맛 핫브레드": "Image 10.jpg",
+    #         "버터곡물": "Image 11.jpg",
+    #         "딸기마카롱": "Image 12.jpg",
+    #         "프리미엄 메가쉐이크": "Image 13.jpg",
+    #         "쿠키": "Image 14.jpg",
+    #         "녹차 캐슈크림 핫브레드": "Image 15.jpg",
+    #         "초콜릿 쿠키": "Image 16.jpg",
+    #         "커피케이크": "Image 17.jpg",
+    #         "플레인 크롸상": "Image 18.jpg",
+    #         "버터 함유량 UP": "Image 19.jpg",
+    #     }
+        
+    #     # 새 메뉴 위젯 생성         
+    #     menu_count = min(12, len(self.menu_df))  # 최대 12개 메뉴 표시                  
+        
+    #     for i in range(menu_count):             
+    #         menu_data = self.menu_df.iloc[i]
+    #         menu_name = menu_data['이름']  # menu_name 변수 추가
+                            
+    #         # 메뉴 프레임             
+    #         menu_frame = QFrame()             
+    #         menu_frame.setFixedSize(180, 200)             
+    #         menu_frame.setStyleSheet("""                 
+    #             QFrame {                     
+    #                 background-color: white;                     
+    #                 border-radius: 10px;                     
+    #                 border: 1px solid #ddd;                 
+    #             }                 
+    #             QFrame:hover {                     
+    #                 border: 2px solid #E54F40;                 
+    #             }             
+    #         """)                          
+            
+    #         # 메뉴 레이아웃             
+    #         menu_layout = QVBoxLayout(menu_frame)                          
+            
+    #         # 메뉴 이미지
+    #         image_label = QLabel()             
+    #         image_label.setFixedSize(120, 100)             
+    #         image_label.setAlignment(Qt.AlignCenter)             
+            
+    #         # 이미지 파일 찾기
+    #         image_file = None
+    #         if menu_name in image_mapping:
+    #             mapped_file = image_mapping[menu_name]
+    #             image_file = os.path.join(image_folder, mapped_file)
+    #         else:
+    #             # 기본 이미지 파일 생성 (예: "아메리카노.jpg", "카페라떼.png" 등)             
+    #             image_file = os.path.join(image_folder, f"{menu_name}.jpg")              
+            
+    #         if os.path.exists(image_file):
+    #             # 이미지 로드 및 크기 조정
+    #             pixmap = QPixmap(image_file)
+    #             scaled_pixmap = pixmap.scaled(120, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    #             image_label.setPixmap(scaled_pixmap)
+    #         else:
+    #             # 이미지가 없는 경우 기본 표시
+    #             image_label.setStyleSheet(f"background-color: #f0f0f0; border-radius: 5px;")             
+    #             image_label.setText(menu_name[0])  # 메뉴 이름의 첫 글자                          
+            
+    #         # 메뉴 이름             
+    #         name_label = QLabel(menu_name)             
+    #         name_label.setAlignment(Qt.AlignCenter)             
+    #         name_label.setStyleSheet("font-weight: bold; font-size: 14px;")                          
+            
+    #         # 메뉴 가격             
+    #         price_label = QLabel(f"{menu_data['가격']}원")             
+    #         price_label.setAlignment(Qt.AlignCenter)             
+    #         price_label.setStyleSheet("color: #E54F40; font-size: 14px;")                          
+            
+    #         # 레이아웃에 위젯 추가             
+    #         menu_layout.addWidget(image_label)             
+    #         menu_layout.addWidget(name_label)             
+    #         menu_layout.addWidget(price_label)                          
+            
+    #         # 클릭 이벤트 연결             
+    #         menu_frame.mousePressEvent = lambda e, name=menu_name, price=menu_data['가격']: self.add_to_cart(name, price)                          
+            
+    #         # 그리드에 메뉴 추가             
+    #         row, col = i // 3, i % 3             
+    #         self.menu_layout.addWidget(menu_frame, row, col)
     
     def add_to_cart(self, name, price):
         """장바구니에 메뉴 추가"""
@@ -483,7 +647,7 @@ class AIServiceDialog(QDialog):
             ("빠른 추천 받기", self.show_quick_recommendation),
             ("건강 맞춤 추천 받기", self.show_health_recommendation),
             ("메뉴에 대해 물어보기", self.show_chat_interface),
-            ("메인 화면으로 돌아가기", self.reject)
+            ("메인 화면으로 돌아가기", self.close_dialog)
         ]
         
         for text, func in services:
@@ -541,6 +705,10 @@ class AIServiceDialog(QDialog):
         # 메인 레이아웃에 위젯 추가
         self.main_layout.addWidget(title_frame)
         self.main_layout.addWidget(scroll_area)
+    # 25.05.05 추가   
+    def close_dialog(self):
+        """다이얼로그를 닫는 함수"""
+        self.accept()  # accept()를 사용하면 OK 결과로 닫힘
     
     def clear_content(self):
         """컨텐츠 영역 초기화"""
@@ -549,10 +717,10 @@ class AIServiceDialog(QDialog):
             widget = item.widget()
             if widget:
                 widget.deleteLater()
-    
+    # 25.05.05 홈 돌아가기로 수정 
     def add_back_button(self):
         """뒤로 가기 버튼 추가"""
-        back_btn = QPushButton("처음으로 돌아가기")
+        back_btn = QPushButton("홈으로 돌아가기")
         back_btn.setFixedHeight(50)
         back_btn.setStyleSheet("""
             QPushButton {
@@ -560,33 +728,45 @@ class AIServiceDialog(QDialog):
                 border-radius: 10px;
                 font-size: 16px;
                 padding: 10px;
+                font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
+                background-color: #E5B800;
             }
         """)
-        back_btn.clicked.connect(self.init_ui)
+        back_btn.clicked.connect(self.go_to_home)
         self.content_layout.addWidget(back_btn)
-    
+    def go_to_home(self):
+        """다이얼로그 닫고 메인 화면으로 돌아가기"""
+        self.accept()  # 다이얼로그 종료
+
     def show_face_recognition(self):
         """얼굴 인식 화면 표시"""
         self.clear_content()
         
-        # 얼굴 인식 결과 표시
-        result_label = QLabel("얼굴 인식 결과: 28세 (청년)")
+        age = get_age_from_camera()
+        if age is None:
+            QMessageBox.warning(self, "인식 실패", "얼굴 인식에 실패했습니다.")
+            return
+
+        # 나이에 따라 연령대 추정
+        if age < 13:
+            age_group = "어린이"
+        elif age < 19:
+            age_group = "청소년"
+        elif age < 40:
+            age_group = "청년"
+        elif age < 60:
+            age_group = "중년"
+        else:
+            age_group = "노인"
+
+        recommendation_text = recommend_by_age(self.menu_df, age_group)
+    
+        # 얼굴 인식 결과 표시 -> 추정 나이 : {age}
+        result_label = QLabel(f"추정 나이: {age}세 → {age_group}\n{recommendation_text}")
         result_label.setAlignment(Qt.AlignCenter)
         result_label.setStyleSheet("font-size: 16px; font-weight: bold; margin: 20px 0;")
-        
-        # 추천 결과 표시
-        recommendation_frame = QFrame()
-        recommendation_frame.setStyleSheet("background-color: #f5f5f5; border-radius: 10px; padding: 10px;")
-        
-        recommendation_layout = QVBoxLayout(recommendation_frame)
-        
-        recommendation_text = QLabel("바쁜 일상 속 활기를 더해줄 추천 메뉴입니다: 아메리카노, 카페라떼, 녹차라떼")
-        recommendation_text.setWordWrap(True)
-        recommendation_text.setStyleSheet("font-size: 16px;")
-        
         # 음성으로 들려주기 버튼
         tts_btn = QPushButton("음성으로 들려주기")
         tts_btn.setStyleSheet("""
@@ -600,10 +780,12 @@ class AIServiceDialog(QDialog):
                 background-color: #45a049;
             }
         """)
-        tts_btn.clicked.connect(lambda: self.play_tts(recommendation_text.text()))
+        # 병합 코드 
+        tts_btn.clicked.connect(lambda: self.play_tts(result_label.text()))
         
-        recommendation_layout.addWidget(recommendation_text)
-        recommendation_layout.addWidget(tts_btn)
+        self.content_layout.addWidget(result_label)
+        self.content_layout.addWidget(tts_btn)
+        self.add_back_button()
         
         # 추천 메뉴 리스트
         recommended_menu_frame = QFrame()
@@ -643,9 +825,9 @@ class AIServiceDialog(QDialog):
         """)
         add_to_cart_btn.clicked.connect(self.add_selected_to_cart)
         
-        # 컨텐츠 영역에 위젯 추가
+        # 컨텐츠 영역   에 위젯 추가
         self.content_layout.addWidget(result_label)
-        self.content_layout.addWidget(recommendation_frame)
+
         self.content_layout.addWidget(recommended_menu_frame)
         self.content_layout.addWidget(add_to_cart_btn)
         
@@ -737,14 +919,9 @@ class AIServiceDialog(QDialog):
             self.content_layout.insertWidget(2, result_frame)
             
             # 추천된 메뉴 추출
-            
             menu_names = []
             pattern = r"추천되는 메뉴입니다: (.*?)\."
             match = re.search(pattern, recommendation_text)
-
-            # if "추천되는 메뉴입니다" in recommendation_text:
-            #     menu_text = recommendation_text.split("추천되는 메뉴입니다: ")[1].split(".")[0]
-            #     menu_names = [name.strip() for name in menu_text.split(", ")]
             
             # 추천 메뉴 리스트 생성
             if menu_names:
@@ -820,7 +997,10 @@ class AIServiceDialog(QDialog):
                 self.content_layout.insertWidget(4, add_to_cart_btn)
         
         except Exception as e:
+            import traceback # 25.05.01 병합 추가 
+            error_msg = traceback.format_exc() # 25.05.01 병합 추가 
             print(f"빠른 추천 오류: {str(e)}")
+            print(error_msg) # 25.05.01 병합 추가 
             QMessageBox.warning(self, "추천 오류", f"추천 중 오류가 발생했습니다: {str(e)}")
             
              # 로그 파일에 오류 저장 25.05.01 추가 
@@ -847,7 +1027,7 @@ class AIServiceDialog(QDialog):
         age_label.setStyleSheet("font-weight: bold; font-size: 16px;")
         
         self.age_combo = QComboBox()
-        self.age_combo.addItems(["선택 안함", "어린이", "청소년", "청년", "중년", "장년", "노년"])
+        self.age_combo.addItems(["선택 안함", "어린이", "청소년", "청년", "중년", "장년", "노인"])
         self.age_combo.setStyleSheet("""
             QComboBox {
                 border: 1px solid #ddd;
@@ -1060,6 +1240,13 @@ class AIServiceDialog(QDialog):
             }
         """)
         
+        # 20.05.01 대화 이력 초기화
+        self.conversation_history = {
+            'pending_menu': None,
+            'previous_query': None,
+            'previous_response': None
+        }
+
         # 시작 메시지
         welcome_msg = "AI 도우미: 안녕하세요! 메뉴에 대해 무엇이든 물어보세요. 예를 들어 '아메리카노는 얼마인가요?', '달달한 음료 추천해주세요' 등을 물어볼 수 있어요."
         self.chat_history.append(welcome_msg)
@@ -1143,6 +1330,53 @@ class AIServiceDialog(QDialog):
         # 뒤로가기 버튼 추가
         self.add_back_button()
     
+    # def send_question(self):
+    #     """질문 전송"""
+    #     question = self.chat_input.text().strip()
+    #     if not question:
+    #         return
+        
+    #     # 질문 표시
+    #     self.chat_history.append(f"\n나: {question}")
+    #     # 입력창 초기화
+    #     self.chat_input.clear()
+            
+    #     try:
+
+    #          # 대화 이력 업데이트
+    #         self.conversation_history['previous_query'] = question
+
+    #         # main.py의 rag_pipeline 함수 호출
+    #         answer = rag_pipeline(
+    #             question, 
+    #             self.menu_texts, 
+    #             self.embedder, 
+    #             self.index, 
+    #             menu_df=self.menu_df,
+    #             conversation_history=self.conversation_history
+    #         )
+
+    #          # 대화 이력 응답 저장 및 답변표시 업데이트
+    #         self.conversation_history['previous_response'] = answer
+    #         self.chat_history.append(f"\nAI 도우미: {answer}")
+            
+    #         # 채팅 창 스크롤
+    #         self.chat_history.moveCursor(self.chat_history.textCursor().End)
+        
+    #     except Exception as e:
+    #         # print(f"RAG 파이프라인 오류: {str(e)}")
+    #         # self.chat_history.append("\nAI 도우미: 죄송합니다, 질문에 답변하는 중 오류가 발생했습니다.")
+    #         import traceback
+    #         error_msg = traceback.format_exc()
+    #         print(f"RAG 파이프라인 오류: {str(e)}")
+    #         print(error_msg)
+    #         self.chat_history.append("\nAI 도우미: 죄송합니다, 질문에 답변하는 중 오류가 발생했습니다.")
+            
+    #         # 로그 파일에 오류 저장
+    #         with open("err_log.txt", "a", encoding="utf-8") as f:
+    #             from datetime import datetime
+    #             f.write(f"[{datetime.now()}] RAG 파이프라인 오류: \n{error_msg}\n\n")
+    # mega_kiosk_ui.py의 send_question 메소드 수정
     def send_question(self):
         """질문 전송"""
         question = self.chat_input.text().strip()
@@ -1151,29 +1385,39 @@ class AIServiceDialog(QDialog):
         
         # 질문 표시
         self.chat_history.append(f"\n나: {question}")
-        
-        # 입력창 초기화
         self.chat_input.clear()
-        
-        # 25.05.01 대화 이력 초기화 (없으면)
-        if not hasattr(self, 'conversation_history'):
-            self.conversation_history = {
-                'pending_menu': None,
-                'previous_query': None,
-                'previous_response': None
-            }
-    
-        # 대화 이력 업데이트
-        self.conversation_history['previous_query'] = question
-
-        # RAG 파이프라인을 통한 답변 생성
-         
-            # preprocessing.py의 rag_pipeline 함수 호출
-            #answer = rag_pipeline(question, self.menu_texts, self.embedder, self.index)
             
         try:
-            # preprocessing.py의 rag_pipeline 함수 호출
-            answer = rag_pipeline(
+            # 대화 이력 업데이트
+            self.conversation_history['previous_query'] = question
+
+            # DEBUG: 메뉴 데이터 상태 확인
+            print(f"메뉴 데이터프레임 컬럼: {self.menu_df.columns.tolist()}")
+            print(f"메뉴 데이터프레임 형태: {self.menu_df.shape}")
+            
+            # 안전한 RAG 파이프라인 호출
+            answer = self.safe_rag_call(question)
+            
+            # 응답 표시
+            self.conversation_history['previous_response'] = answer
+            self.chat_history.append(f"\nAI 도우미: {answer}")
+            self.chat_history.moveCursor(self.chat_history.textCursor().End)
+        
+        except Exception as e:
+            import traceback
+            error_msg = traceback.format_exc()
+            self.chat_history.append("\nAI 도우미: 죄송합니다, 답변 중 오류가 발생했습니다.")
+            print(f"오류: {error_msg}")
+
+# 안전한 RAG 호출 메소드 추가
+    def safe_rag_call(self, question):
+        """에러를 처리하는 안전한 RAG 호출"""
+        try:
+            # DEBUG: 메뉴 이름과 컬럼 확인
+            print(f"DEBUG: menu_df 컬럼: {self.menu_df.columns.tolist()}")
+            print(f"DEBUG: 질문: {question}")
+
+            return rag_pipeline(
                 question, 
                 self.menu_texts, 
                 self.embedder, 
@@ -1181,29 +1425,15 @@ class AIServiceDialog(QDialog):
                 menu_df=self.menu_df,
                 conversation_history=self.conversation_history
             )
-
-             # 대화 이력 응답 업데이트
-            self.conversation_history['previous_response'] = answer
-
-            # 답변 표시
-            self.chat_history.append(f"\nAI 도우미: {answer}")
-            
-            # 채팅 창 스크롤
-            self.chat_history.moveCursor(self.chat_history.textCursor().End)
-        
-        except Exception as e:
-            # print(f"RAG 파이프라인 오류: {str(e)}")
-            # self.chat_history.append("\nAI 도우미: 죄송합니다, 질문에 답변하는 중 오류가 발생했습니다.")
-            import traceback
-            error_msg = traceback.format_exc()
-            print(f"RAG 파이프라인 오류: {str(e)}")
-            print(error_msg)
-            self.chat_history.append("\nAI 도우미: 죄송합니다, 질문에 답변하는 중 오류가 발생했습니다.")
-            
-            # 로그 파일에 오류 저장
-            with open("err_log.txt", "a", encoding="utf-8") as f:
-                from datetime import datetime
-                f.write(f"[{datetime.now()}] RAG 파이프라인 오류: \n{error_msg}\n\n")
+        except ValueError as e:
+            if "too many values to unpack" in str(e):
+                # identify_menu_type 함수 문제
+                return "메뉴 정보를 처리하는 중 문제가 발생했습니다. 다시 질문해주세요."
+            elif "Lengths must match" in str(e):
+                # DataFrame 길이 불일치 문제
+                return "데이터베이스 검색 중 문제가 발생했습니다. 구체적으로 질문해주세요."
+            else:
+                return f"죄송합니다. 다시 시도해주세요: {str(e)}"
     
     def ask_example_question(self, question):
         """예시 질문 클릭"""
