@@ -569,7 +569,7 @@ def rag_pipeline(query: str, context_chunks: list, embedder, index, top_k: int =
                     conversation_history['pending_menu'] = None  # 보류 메뉴 처리 완료
                     return f"네, 차가운 {prev_menu} 가격은 {price}원입니다."
         
-         # 메뉴 감지됐으나 HOT/ICE 여부가 미지정인 경우 => menu_name => deteㄹcted_menus 변경 (25.05.05)
+         # 메뉴 감지됐으나 HOT/ICE 여부가 미지정인 경우 => menu_name => detected_menus 변경 (25.05.05)
         if detected_menus and not temp_type:
             first_menu = detected_menus[0]  # 첫 번째 메뉴 가져오기
             # HOT/ICE 모두 있는지 확인 (수정된 코드)
@@ -836,7 +836,6 @@ def learn_from_log(log_path="rag_log.txt"):
             backup_file = f"{log_path}.{datetime.now().strftime('%Y%m%d%H%M%S')}"
             os.rename(log_path, backup_file)
             print(f"로그 파일을 {backup_file}로 백업했습니다.")
-            
     except Exception as e:
         print(f"로그 파일 학습 처리 중 오류: {str(e)}")
 
