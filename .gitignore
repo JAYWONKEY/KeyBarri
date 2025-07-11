@@ -1,0 +1,85 @@
+https://github.com/JAYWONKEY/KeyBarri/tree/privacy
+
+# .gitignore 파일 내용
+
+# 환경 변수 및 비밀 정보
+.env
+.env.local
+.env.production
+*.key
+encryption.key
+
+# API 키 관련
+*api_key*
+*secret*
+*password*
+
+# 데이터베이스
+*.db
+*.sqlite
+kiosk_assistance.db
+
+# 로그 파일
+*.log
+*.txt
+secure_error_log.txt
+rag_log.txt
+anonymous_usage.log
+결과_로그.csv
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 임시 파일
+temp/
+*.tmp
+face_temp_*
+speech_*.mp3
+
+# IDE 설정
+.vscode/settings.json
+.idea/
+
+# 가상환경
+venv/
+env/
+KeyBarri/
+
+# 모델 파일 (용량 큰 파일들)
+*.pt
+*.pth
+*.model
+*.pkl
+
+# 이미지/비디오 (용량 관리)
+*.mp4
+*.avi
+*.jpg
+*.png
+*.jpeg
+# 단, 샘플 이미지는 포함시키려면 주석 처리
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
